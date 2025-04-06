@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+package events;
+
+option go_package = "backend/proto;proto";
+option java_multiple_files = true;
+
+service EventService {
+  rpc StreamLocation (stream LocationUpdate) returns (stream EventsResponse);
+  rpc ReportEvent(ReportEventRequest) returns (ReportEventResponse);
+  rpc VoteEvent(VoteEventRequest) returns (VoteEventResponse);
+}
+
+enum EventType {
+  POLICE_CHECK = 0;
+  ACCIDENT = 1;
+  TRAFFIC_JAM = 2;
+  SPEED_CAMERA = 3;
+}
+
+message LocationUpdate {
+  double latitude = 1;
+  double longitude = 2;
+  int64 timestamp = 3;
+}
+
+message Event {
+  uint32 event_id = 1;
+  EventType type = 2;
+  double latitude = 3;
+  double longitude = 4;
+  int32 votes = 5;
+}
+
+message EventsResponse {
+  repeated Event events = 1;
+}
+
+message ReportEventRequest {
+  EventType type = 1;
+  double latitude = 2;
+  double longitude = 3;
+}
+
+message ReportEventResponse {
+  uint32 event_id = 1;
+}
+
+message VoteEventRequest {
+  uint32 event_id = 1;
+  bool upvote = 2;
+}
+
+message VoteEventResponse {
+  uint32 event_id = 1;
+  int32 votes = 2;
+}
