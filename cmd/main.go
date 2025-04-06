@@ -5,13 +5,13 @@ import (
 	"os"
 
 	"github.com/joho/godotenv"
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
 	"github.com/krakosik/backend/internal/client"
 	"github.com/krakosik/backend/internal/controller"
 	"github.com/krakosik/backend/internal/dto"
 	"github.com/krakosik/backend/internal/repository"
 	"github.com/krakosik/backend/internal/service"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"github.com/sirupsen/logrus"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -23,7 +23,7 @@ func main() {
 		logrus.Info("Error loading .env file")
 	}
 
-	config := dto.Config{DSN: os.Getenv("DSN"), SigningSecret: os.Getenv("JWT_SECRET")}
+	config := dto.NewConfig()
 
 	db, err := gorm.Open(postgres.Open(config.DSN), &gorm.Config{})
 	if err != nil {
