@@ -10,18 +10,21 @@ import (
 type Services interface {
 	User() UserService
 	Auth() AuthService
+	Event() EventService
 }
 
 type services struct {
-	userService UserService
-	authService AuthService
+	userService  UserService
+	authService  AuthService
+	eventService EventService
 }
 
 func NewServices(repositories repository.Repositories, config dto.Config, clients client.Clients) Services {
 	userService := newUserService(repositories.User(), config)
 	return &services{
-		userService: userService,
-		authService: newAuthService(repositories.User(), clients.AuthClient(), authV4.IsIDTokenExpired),
+		userService:  userService,
+		authService:  newAuthService(repositories.User(), clients.AuthClient(), authV4.IsIDTokenExpired),
+		eventService: newEventService(),
 	}
 }
 
@@ -31,4 +34,8 @@ func (s services) User() UserService {
 
 func (s services) Auth() AuthService {
 	return s.authService
+}
+
+func (s services) Event() EventService {
+	return s.eventService
 }

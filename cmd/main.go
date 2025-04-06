@@ -2,6 +2,8 @@ package main
 
 import (
 	"errors"
+	"github.com/krakosik/backend/internal/procedure"
+	"net"
 	"os"
 
 	"github.com/joho/godotenv"
@@ -53,6 +55,20 @@ func main() {
 	services := service.NewServices(repositories, config, clients)
 	controllers := controller.NewControllers(services)
 	controllers.Route(e)
+
+	procedures := procedure.NewProcedures(services)
+	go func() {
+		grpcPort := os.Getenv("GRPC_PORT")
+		if grpcPort == "" {
+			grpcPort = "3001"
+		}
+		logrus.Info("Starting GRPC (TLS) server on port " + grpcPort)
+		listener, err := net.Listen("tcp", ":"+grpcPort)
+		if err != nil {
+			logrus.Panic(err)
+		}
+		logrus.Fatal(procedures.Serve(listener))
+	}()
 
 	port := os.Getenv("PORT")
 	if port == "" {
