@@ -9,12 +9,14 @@ import (
 type Config struct {
 	DSN         string `json:"DSN"`
 	FirebaseKey string `json:"firebase_key"`
+	RabbitMQURL string `json:"rabbitmq_url"`
 }
 
 func NewConfig() Config {
 	return Config{
 		DSN:         os.Getenv("DSN"),
 		FirebaseKey: os.Getenv("FIREBASE_KEY"),
+		RabbitMQURL: os.Getenv("RABBITMQ_URL"),
 	}
 }
 

@@ -11,20 +11,24 @@ type Services interface {
 	User() UserService
 	Auth() AuthService
 	Event() EventService
+	EventBroker() EventBroker
 }
 
 type services struct {
 	userService  UserService
 	authService  AuthService
 	eventService EventService
+	eventBroker  EventBroker
 }
 
 func NewServices(repositories repository.Repositories, config dto.Config, clients client.Clients) Services {
+	eventBroker := newEventBroker(config)
 	userService := newUserService(repositories.User(), config)
 	return &services{
 		userService:  userService,
 		authService:  newAuthService(repositories.User(), clients.AuthClient(), authV4.IsIDTokenExpired),
-		eventService: newEventService(),
+		eventService: newEventService(repositories.Event(), eventBroker),
+		eventBroker:  eventBroker,
 	}
 }
 
@@ -38,4 +42,8 @@ func (s services) Auth() AuthService {
 
 func (s services) Event() EventService {
 	return s.eventService
+}
+
+func (s services) EventBroker() EventBroker {
+	return s.eventBroker
 }
