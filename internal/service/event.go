@@ -26,13 +26,15 @@ type EventService interface {
 
 type eventService struct {
 	eventRepository repository.EventRepository
+	voteRepository  repository.VoteRepository
 	rabbitClient    client.RabbitClient
 	locationService LocationService
 }
 
-func newEventService(eventRepository repository.EventRepository, rabbitClient client.RabbitClient) EventService {
+func newEventService(eventRepository repository.EventRepository, voteRepository repository.VoteRepository, rabbitClient client.RabbitClient) EventService {
 	return &eventService{
 		eventRepository: eventRepository,
+		voteRepository:  voteRepository,
 		rabbitClient:    rabbitClient,
 		locationService: newLocationService(),
 	}
@@ -91,6 +93,8 @@ func (e *eventService) StreamLocation(srv grpc.BidiStreamingServer[gen.LocationU
 				locationUpdate.GetLongitude(),
 				locationUpdate.GetTimestamp(),
 			)
+
+			logrus.Infof("User %s updated location to (%f, %f)", connectionID, locationUpdate.GetLatitude(), locationUpdate.GetLongitude())
 
 			events, err := e.FindEventsWithinDistance(
 				locationUpdate.GetLatitude(),
@@ -260,12 +264,37 @@ func (e *eventService) ReportEvent(ctx context.Context, request *gen.ReportEvent
 }
 
 func (e *eventService) VoteEvent(ctx context.Context, request *gen.VoteEventRequest) (*gen.VoteEventResponse, error) {
-	voteCount, err := e.GetVoteCount(uint(request.GetEventId()))
+	// Create the vote
+	vote := model.Vote{
+		EventID:   uint(request.GetEventId()),
+		CreatedAt: time.Now().UTC(),
+		Upvote:    request.GetUpvote(),
+	}
+
+	_, err := e.voteRepository.Create(vote)
 	if err != nil {
 		return nil, err
 	}
 
+	logrus.Infof("New vote created for event %d: upvote=%v", request.GetEventId(), request.GetUpvote())
+
+	// Get the updated vote count
+	voteCount, err := e.voteRepository.CountVotes(uint(request.GetEventId()))
+	if err != nil {
+		return nil, err
+	}
+
+	// Get the event to publish the update
+	event, err := e.eventRepository.GetByID(uint(request.GetEventId()))
+	if err != nil {
+		return nil, err
+	}
+
+	// Publish the event update
+	e.PublishEvent(event)
+
 	return &gen.VoteEventResponse{
-		Votes: voteCount,
+		EventId: request.GetEventId(),
+		Votes:   voteCount,
 	}, nil
 }

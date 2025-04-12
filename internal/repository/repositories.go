@@ -9,11 +9,13 @@ import (
 type Repositories interface {
 	User() UserRepository
 	Event() EventRepository
+	Vote() VoteRepository
 }
 
 type repositories struct {
 	userRepository  UserRepository
 	eventRepository EventRepository
+	voteRepository  VoteRepository
 }
 
 func NewRepositories(db *gorm.DB) Repositories {
@@ -23,9 +25,11 @@ func NewRepositories(db *gorm.DB) Repositories {
 	}
 	userRepository := newUserRepository(db)
 	eventRepository := newEventRepository(db)
+	voteRepository := newVoteRepository(db)
 	return &repositories{
 		userRepository:  userRepository,
 		eventRepository: eventRepository,
+		voteRepository:  voteRepository,
 	}
 }
 
@@ -35,4 +39,8 @@ func (r repositories) User() UserRepository {
 
 func (r repositories) Event() EventRepository {
 	return r.eventRepository
+}
+
+func (r repositories) Vote() VoteRepository {
+	return r.voteRepository
 }

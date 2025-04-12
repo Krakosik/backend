@@ -24,7 +24,7 @@ func NewServices(repositories repository.Repositories, config dto.Config, client
 	return &services{
 		userService:  userService,
 		authService:  newAuthService(repositories.User(), clients.AuthClient(), authV4.IsIDTokenExpired),
-		eventService: newEventService(repositories.Event(), clients.RabbitMQClient()),
+		eventService: newEventService(repositories.Event(), repositories.Vote(), clients.RabbitMQClient()),
 	}
 }
 
