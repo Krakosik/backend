@@ -11,4 +11,6 @@ FROM alpine
 WORKDIR /
 COPY --from=builder /main /main
 EXPOSE 3000
+COPY cmd/server.crt .
+COPY cmd/server.key .
 ENTRYPOINT ["/main"]
