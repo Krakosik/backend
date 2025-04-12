@@ -64,6 +64,7 @@ func (e *event) FindEventsWithinDistance(latitude, longitude float64, distanceIn
 				)
 			) AS distance 
 			FROM events
+			WHERE expired_at IS NULL OR expired_at > NOW()
 		) AS e
 		WHERE e.distance < ?
 		ORDER BY e.distance

@@ -60,7 +60,7 @@ func (e *eventService) GetVoteCount(eventID uint) (int32, error) {
 }
 
 func (e *eventService) StreamLocation(srv grpc.BidiStreamingServer[gen.LocationUpdate, gen.EventsResponse]) error {
-	connectionID := fmt.Sprintf("conn_%d", time.Now().UnixNano())
+	connectionID := fmt.Sprintf("conn_%d", time.Now().UTC().UnixNano())
 
 	msgChan, err := e.rabbitClient.SubscribeToMessages(connectionID)
 	if err != nil {
@@ -115,6 +115,11 @@ func (e *eventService) StreamLocation(srv grpc.BidiStreamingServer[gen.LocationU
 					Type:      gen.EventType(event.EventType),
 					Latitude:  event.Latitude,
 					Longitude: event.Longitude,
+					CreatedAt: event.CreatedAt.Unix(),
+				}
+				if event.ExpiredAt != nil {
+					unixTime := event.ExpiredAt.Unix()
+					protoEvent.ExpiresAt = &unixTime
 				}
 
 				voteCount, err := e.GetVoteCount(event.ID)
@@ -172,6 +177,11 @@ func (e *eventService) StreamLocation(srv grpc.BidiStreamingServer[gen.LocationU
 						Type:      gen.EventType(event.EventType),
 						Latitude:  event.Latitude,
 						Longitude: event.Longitude,
+						CreatedAt: event.CreatedAt.Unix(),
+					}
+					if event.ExpiredAt != nil {
+						unixTime := event.ExpiredAt.Unix()
+						protoEvent.ExpiresAt = &unixTime
 					}
 
 					voteCount, err := e.GetVoteCount(event.ID)
@@ -200,12 +210,14 @@ func (e *eventService) StreamLocation(srv grpc.BidiStreamingServer[gen.LocationU
 }
 
 func (e *eventService) ReportEvent(ctx context.Context, request *gen.ReportEventRequest) (*gen.ReportEventResponse, error) {
+	expiration := time.Now().UTC().Add(model.EventType(request.GetType()).GetExpirationDuration())
 	event := model.Event{
 		EventType: model.EventType(request.GetType()),
 		Latitude:  request.GetLatitude(),
 		Longitude: request.GetLongitude(),
-		CreatedAt: time.Now(),
+		CreatedAt: time.Now().UTC(),
 		CreatedBy: 1,
+		ExpiredAt: &expiration,
 	}
 
 	createdEvent, err := e.eventRepository.Create(event)

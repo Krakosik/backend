@@ -140,6 +140,8 @@ type Event struct {
 	Latitude      float64                `protobuf:"fixed64,3,opt,name=latitude,proto3" json:"latitude,omitempty"`
 	Longitude     float64                `protobuf:"fixed64,4,opt,name=longitude,proto3" json:"longitude,omitempty"`
 	Votes         int32                  `protobuf:"varint,5,opt,name=votes,proto3" json:"votes,omitempty"`
+	CreatedAt     int64                  `protobuf:"varint,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	ExpiresAt     *int64                 `protobuf:"varint,7,opt,name=expires_at,json=expiresAt,proto3,oneof" json:"expires_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -205,6 +207,20 @@ func (x *Event) GetLongitude() float64 {
 func (x *Event) GetVotes() int32 {
 	if x != nil {
 		return x.Votes
+	}
+	return 0
+}
+
+func (x *Event) GetCreatedAt() int64 {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return 0
+}
+
+func (x *Event) GetExpiresAt() int64 {
+	if x != nil && x.ExpiresAt != nil {
+		return *x.ExpiresAt
 	}
 	return 0
 }
@@ -469,13 +485,18 @@ const file_events_proto_rawDesc = "" +
 	"\x0eLocationUpdate\x12\x1a\n" +
 	"\blatitude\x18\x01 \x01(\x01R\blatitude\x12\x1c\n" +
 	"\tlongitude\x18\x02 \x01(\x01R\tlongitude\x12\x1c\n" +
-	"\ttimestamp\x18\x03 \x01(\x03R\ttimestamp\"\x99\x01\n" +
+	"\ttimestamp\x18\x03 \x01(\x03R\ttimestamp\"\xeb\x01\n" +
 	"\x05Event\x12\x19\n" +
 	"\bevent_id\x18\x01 \x01(\rR\aeventId\x12%\n" +
 	"\x04type\x18\x02 \x01(\x0e2\x11.events.EventTypeR\x04type\x12\x1a\n" +
 	"\blatitude\x18\x03 \x01(\x01R\blatitude\x12\x1c\n" +
 	"\tlongitude\x18\x04 \x01(\x01R\tlongitude\x12\x14\n" +
-	"\x05votes\x18\x05 \x01(\x05R\x05votes\"7\n" +
+	"\x05votes\x18\x05 \x01(\x05R\x05votes\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\x06 \x01(\x03R\tcreatedAt\x12\"\n" +
+	"\n" +
+	"expires_at\x18\a \x01(\x03H\x00R\texpiresAt\x88\x01\x01B\r\n" +
+	"\v_expires_at\"7\n" +
 	"\x0eEventsResponse\x12%\n" +
 	"\x06events\x18\x01 \x03(\v2\r.events.EventR\x06events\"u\n" +
 	"\x12ReportEventRequest\x12%\n" +
@@ -546,6 +567,7 @@ func file_events_proto_init() {
 	if File_events_proto != nil {
 		return
 	}
+	file_events_proto_msgTypes[1].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

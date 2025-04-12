@@ -30,6 +30,8 @@ message Event {
   double latitude = 3;
   double longitude = 4;
   int32 votes = 5;
+  int64 created_at = 6;
+  optional int64 expires_at = 7;
 }
 
 message EventsResponse {
