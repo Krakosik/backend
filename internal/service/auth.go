@@ -4,14 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/krakosik/backend/internal/client"
 	"github.com/krakosik/backend/internal/dto"
 	"github.com/krakosik/backend/internal/model"
 	"github.com/krakosik/backend/internal/repository"
 )
 
+type User = model.User
+
 type AuthService interface {
-	ValidateToken(ctx context.Context, token string) (model.User, error)
+	ValidateToken(ctx context.Context, token string) (User, error)
 }
 
 type authService struct {
@@ -24,23 +27,23 @@ func newAuthService(userRepository repository.UserRepository, authClient client.
 	return &authService{userRepository: userRepository, authClient: authClient, tokenExpireVerifier: verifier}
 }
 
-func (a *authService) ValidateToken(ctx context.Context, token string) (model.User, error) {
-	var newUser model.User
+func (a *authService) ValidateToken(ctx context.Context, token string) (User, error) {
+	var newUser User
 
 	response, err := a.authClient.VerifyIDToken(ctx, token)
 	if err != nil {
 		if a.tokenExpireVerifier(err) {
-			return model.User{}, fmt.Errorf("%w: %v", dto.ErrNotAuthorized, err)
+			return User{}, fmt.Errorf("%w: %v", dto.ErrNotAuthorized, err)
 		}
-		return model.User{}, fmt.Errorf("%w: %v", dto.ErrInternalFailure, err)
+		return User{}, fmt.Errorf("%w: %v", dto.ErrInternalFailure, err)
 	}
 
 	if _, ok := response.Claims["email"]; !ok {
-		return model.User{}, fmt.Errorf("%w: %v", dto.ErrInternalFailure, "email claim not found")
+		return User{}, fmt.Errorf("%w: %v", dto.ErrInternalFailure, "email claim not found")
 
 	}
 	if _, ok := response.Claims["email"].(string); !ok {
-		return model.User{}, fmt.Errorf("%w: %v", dto.ErrInternalFailure, "email claim is not a string")
+		return User{}, fmt.Errorf("%w: %v", dto.ErrInternalFailure, "email claim is not a string")
 	}
 
 	userEmail := response.Claims["email"].(string)
@@ -49,16 +52,16 @@ func (a *authService) ValidateToken(ctx context.Context, token string) (model.Us
 
 	if err != nil {
 		if errors.Is(err, dto.ErrNotFound) {
-			newUser, err = a.userRepository.Create(model.User{
+			newUser, err = a.userRepository.Create(User{
 				ID:    response.UID,
 				Email: userEmail,
 			})
 			if err != nil {
-				return model.User{}, err // internal error
+				return User{}, err // internal error
 			}
 			return newUser, nil
 		}
-		return model.User{}, err
+		return User{}, err
 	}
 
 	if user.Email != userEmail {
@@ -66,7 +69,7 @@ func (a *authService) ValidateToken(ctx context.Context, token string) (model.Us
 
 		_, err = a.userRepository.Save(user)
 		if err != nil {
-			return model.User{}, err
+			return User{}, err
 		}
 	}
 

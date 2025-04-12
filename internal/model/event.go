@@ -11,5 +11,5 @@ type Event struct {
 	EventType EventType `gorm:"not null"`
 	Latitude  float64   `gorm:"not null"`
 	Longitude float64   `gorm:"not null"`
-	CreatedBy uint      `gorm:"not null"`
+	CreatedBy string    `gorm:"not null"`
 }

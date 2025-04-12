@@ -9,6 +9,7 @@ import (
 
 	"github.com/krakosik/backend/gen"
 	"github.com/krakosik/backend/internal/client"
+	"github.com/krakosik/backend/internal/dto"
 	"github.com/krakosik/backend/internal/model"
 	"github.com/krakosik/backend/internal/repository"
 	"github.com/sirupsen/logrus"
@@ -64,6 +65,19 @@ func (e *eventService) GetVoteCount(eventID uint) (int32, error) {
 func (e *eventService) StreamLocation(srv grpc.BidiStreamingServer[gen.LocationUpdate, gen.EventsResponse]) error {
 	connectionID := fmt.Sprintf("conn_%d", time.Now().UTC().UnixNano())
 
+	user, ok := dto.GetUserFromContext(srv.Context())
+	if !ok {
+		return fmt.Errorf("user not found in context")
+	}
+
+	userIdentifier := user.Email
+	if user.FirstName != nil && *user.FirstName != "" {
+		userIdentifier = *user.FirstName
+		if user.LastName != nil && *user.LastName != "" {
+			userIdentifier = fmt.Sprintf("%s %s", *user.FirstName, *user.LastName)
+		}
+	}
+
 	msgChan, err := e.rabbitClient.SubscribeToMessages(connectionID)
 	if err != nil {
 		return fmt.Errorf("failed to subscribe to messages: %v", err)
@@ -82,7 +96,7 @@ func (e *eventService) StreamLocation(srv grpc.BidiStreamingServer[gen.LocationU
 		for {
 			locationUpdate, err := srv.Recv()
 			if err != nil {
-				logrus.Errorf("Error receiving location update: %v", err)
+				logrus.Errorf("Error receiving location update from user %s: %v", userIdentifier, err)
 				cancel()
 				return
 			}
@@ -94,7 +108,7 @@ func (e *eventService) StreamLocation(srv grpc.BidiStreamingServer[gen.LocationU
 				locationUpdate.GetTimestamp(),
 			)
 
-			logrus.Infof("User %s updated location to (%f, %f)", connectionID, locationUpdate.GetLatitude(), locationUpdate.GetLongitude())
+			logrus.Infof("User %s updated location to (%f, %f)", userIdentifier, locationUpdate.GetLatitude(), locationUpdate.GetLongitude())
 
 			events, err := e.FindEventsWithinDistance(
 				locationUpdate.GetLatitude(),
@@ -102,14 +116,15 @@ func (e *eventService) StreamLocation(srv grpc.BidiStreamingServer[gen.LocationU
 				1000.0,
 			)
 			if err != nil {
-				logrus.Errorf("Error finding events near location: %v", err)
+				logrus.Errorf("Error finding events near location for user %s: %v", userIdentifier, err)
 				continue
 			}
 
-			logrus.Infof("Found %d events near location (%f, %f)",
+			logrus.Infof("Found %d events near location (%f, %f) for user %s",
 				len(events),
 				locationUpdate.GetLatitude(),
 				locationUpdate.GetLongitude(),
+				userIdentifier,
 			)
 
 			protoEvents := make([]*gen.Event, 0, len(events))
@@ -155,7 +170,7 @@ func (e *eventService) StreamLocation(srv grpc.BidiStreamingServer[gen.LocationU
 
 				var event model.Event
 				if err := json.Unmarshal(msg, &event); err != nil {
-					logrus.Errorf("Error unmarshaling event: %v", err)
+					logrus.Errorf("Error unmarshaling event for user %s: %v", userIdentifier, err)
 					continue
 				}
 
@@ -170,7 +185,7 @@ func (e *eventService) StreamLocation(srv grpc.BidiStreamingServer[gen.LocationU
 					1000.0,
 				)
 				if err != nil {
-					logrus.Errorf("Error finding events after notification: %v", err)
+					logrus.Errorf("Error finding events after notification for user %s: %v", userIdentifier, err)
 					continue
 				}
 
@@ -214,10 +229,23 @@ func (e *eventService) StreamLocation(srv grpc.BidiStreamingServer[gen.LocationU
 }
 
 func (e *eventService) ReportEvent(ctx context.Context, request *gen.ReportEventRequest) (*gen.ReportEventResponse, error) {
+	user, ok := dto.GetUserFromContext(ctx)
+	if !ok {
+		return nil, fmt.Errorf("user not found in context")
+	}
+
+	userIdentifier := user.Email
+	if user.FirstName != nil && *user.FirstName != "" {
+		userIdentifier = *user.FirstName
+		if user.LastName != nil && *user.LastName != "" {
+			userIdentifier = fmt.Sprintf("%s %s", *user.FirstName, *user.LastName)
+		}
+	}
+
 	existingEvents, err := e.eventRepository.FindEventsWithinDistance(
 		request.GetLatitude(),
 		request.GetLongitude(),
-		100.0, // 100 meters
+		100.0,
 	)
 	if err != nil {
 		return nil, err
@@ -233,6 +261,7 @@ func (e *eventService) ReportEvent(ctx context.Context, request *gen.ReportEvent
 				return nil, err
 			}
 
+			logrus.Infof("User %s updated event %d", userIdentifier, updatedEvent.ID)
 			e.PublishEvent(updatedEvent)
 
 			return &gen.ReportEventResponse{
@@ -247,7 +276,7 @@ func (e *eventService) ReportEvent(ctx context.Context, request *gen.ReportEvent
 		Latitude:  request.GetLatitude(),
 		Longitude: request.GetLongitude(),
 		CreatedAt: time.Now().UTC(),
-		CreatedBy: 1,
+		CreatedBy: user.ID,
 		ExpiredAt: &expiration,
 	}
 
@@ -256,6 +285,7 @@ func (e *eventService) ReportEvent(ctx context.Context, request *gen.ReportEvent
 		return nil, err
 	}
 
+	logrus.Infof("User %s created new event %d", userIdentifier, createdEvent.ID)
 	e.PublishEvent(createdEvent)
 
 	return &gen.ReportEventResponse{
@@ -264,11 +294,23 @@ func (e *eventService) ReportEvent(ctx context.Context, request *gen.ReportEvent
 }
 
 func (e *eventService) VoteEvent(ctx context.Context, request *gen.VoteEventRequest) (*gen.VoteEventResponse, error) {
-	// Create the vote
+	user, ok := dto.GetUserFromContext(ctx)
+	if !ok {
+		return nil, fmt.Errorf("user not found in context")
+	}
+
+	userIdentifier := user.Email
+	if user.FirstName != nil && *user.FirstName != "" {
+		userIdentifier = *user.FirstName
+		if user.LastName != nil && *user.LastName != "" {
+			userIdentifier = fmt.Sprintf("%s %s", *user.FirstName, *user.LastName)
+		}
+	}
+
 	vote := model.Vote{
-		EventID:   uint(request.GetEventId()),
-		CreatedAt: time.Now().UTC(),
-		Upvote:    request.GetUpvote(),
+		EventID: uint(request.GetEventId()),
+		UserID:  user.ID,
+		Upvote:  request.GetUpvote(),
 	}
 
 	_, err := e.voteRepository.Create(vote)
@@ -276,21 +318,18 @@ func (e *eventService) VoteEvent(ctx context.Context, request *gen.VoteEventRequ
 		return nil, err
 	}
 
-	logrus.Infof("New vote created for event %d: upvote=%v", request.GetEventId(), request.GetUpvote())
+	logrus.Infof("User %s voted on event %d: upvote=%v", userIdentifier, request.GetEventId(), request.GetUpvote())
 
-	// Get the updated vote count
 	voteCount, err := e.voteRepository.CountVotes(uint(request.GetEventId()))
 	if err != nil {
 		return nil, err
 	}
 
-	// Get the event to publish the update
 	event, err := e.eventRepository.GetByID(uint(request.GetEventId()))
 	if err != nil {
 		return nil, err
 	}
 
-	// Publish the event update
 	e.PublishEvent(event)
 
 	return &gen.VoteEventResponse{

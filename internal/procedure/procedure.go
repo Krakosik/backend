@@ -27,7 +27,13 @@ func NewProcedures(services service.Services) Procedures {
 	if err != nil {
 		logrus.Panic(err)
 	}
-	grpcServer := grpc.NewServer(grpc.Creds(credentials.NewServerTLSFromCert(&grpcCredentials)))
+
+	grpcServer := grpc.NewServer(
+		grpc.Creds(credentials.NewServerTLSFromCert(&grpcCredentials)),
+		grpc.UnaryInterceptor(AuthInterceptor(services.Auth())),
+		grpc.StreamInterceptor(StreamAuthInterceptor(services.Auth())),
+	)
+
 	s := &server{
 		eventProcedure: eventProcedure,
 	}
