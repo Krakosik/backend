@@ -1,17 +1,18 @@
 package repository
 
 import (
+	"errors"
 	"fmt"
-
 	"github.com/krakosik/backend/internal/dto"
 	"github.com/krakosik/backend/internal/model"
 	"gorm.io/gorm"
 )
 
 type UserRepository interface {
+	Create(user model.User) (model.User, error)
+	GetByID(id string) (model.User, error)
 	Save(user model.User) (model.User, error)
-	FindByID(id uint) (model.User, error)
-	FindByEmail(email string) (model.User, error)
+	DeleteByID(id string) error
 }
 
 type user struct {
@@ -24,25 +25,43 @@ func newUserRepository(db *gorm.DB) UserRepository {
 	}
 }
 
-func (u user) Save(user model.User) (model.User, error) {
-	u.db.Create(&user)
+func (u *user) Create(user model.User) (model.User, error) {
+	result := u.db.Create(&user)
+	if result.Error != nil {
+		return model.User{}, fmt.Errorf("%w: %v", dto.ErrInternalFailure, result.Error)
+	}
+
 	return user, nil
 }
 
-func (u user) FindByID(id uint) (model.User, error) {
+func (u *user) GetByID(id string) (model.User, error) {
 	var user model.User
-	u.db.First(&user, id)
-	if user.ID == 0 {
-		return model.User{}, dto.AppError(fmt.Errorf("user with id %d not found", id))
+	result := u.db.First(&user, "id = ?", id)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return model.User{}, fmt.Errorf("%w: %v", dto.ErrNotFound, result.Error)
+		}
+		return model.User{}, fmt.Errorf("%w: %v", dto.ErrInternalFailure, result.Error)
 	}
 	return user, nil
 }
 
-func (u user) FindByEmail(email string) (model.User, error) {
-	var user model.User
-	u.db.Where("email = ?", email).First(&user)
-	if user.ID == 0 {
-		return model.User{}, dto.AppError(fmt.Errorf("user with email %s not found", email))
+func (u *user) Save(user model.User) (model.User, error) {
+	result := u.db.Save(&user)
+	if result.Error != nil {
+		return model.User{}, fmt.Errorf("%w: %v", dto.ErrInternalFailure, result.Error)
 	}
+
 	return user, nil
+}
+
+func (u *user) DeleteByID(id string) error {
+	result := u.db.Delete(&model.User{}, id)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return errors.New("user cannot be deleted")
+	}
+	return nil
 }

@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package events;
 
-option go_package = "backend/proto;proto";
+option go_package = "github.com/krakosik/server/gen";
 option java_multiple_files = true;
 
 service EventService {

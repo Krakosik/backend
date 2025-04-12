@@ -2,16 +2,18 @@ package main
 
 import (
 	"errors"
+	"github.com/krakosik/backend/internal/procedure"
+	"net"
 	"os"
 
 	"github.com/joho/godotenv"
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
 	"github.com/krakosik/backend/internal/client"
 	"github.com/krakosik/backend/internal/controller"
 	"github.com/krakosik/backend/internal/dto"
 	"github.com/krakosik/backend/internal/repository"
 	"github.com/krakosik/backend/internal/service"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"github.com/sirupsen/logrus"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -23,7 +25,7 @@ func main() {
 		logrus.Info("Error loading .env file")
 	}
 
-	config := dto.Config{DSN: os.Getenv("DSN"), SigningSecret: os.Getenv("JWT_SECRET")}
+	config := dto.NewConfig()
 
 	db, err := gorm.Open(postgres.Open(config.DSN), &gorm.Config{})
 	if err != nil {
@@ -53,6 +55,20 @@ func main() {
 	services := service.NewServices(repositories, config, clients)
 	controllers := controller.NewControllers(services)
 	controllers.Route(e)
+
+	procedures := procedure.NewProcedures(services)
+	go func() {
+		grpcPort := os.Getenv("GRPC_PORT")
+		if grpcPort == "" {
+			grpcPort = "3001"
+		}
+		logrus.Info("Starting GRPC (TLS) server on port " + grpcPort)
+		listener, err := net.Listen("tcp", ":"+grpcPort)
+		if err != nil {
+			logrus.Panic(err)
+		}
+		logrus.Fatal(procedures.Serve(listener))
+	}()
 
 	port := os.Getenv("PORT")
 	if port == "" {

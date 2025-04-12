@@ -16,10 +16,12 @@ services:
     environment:
       POSTGRES_DB: app
       POSTGRES_PASSWORD: "jqKwlS9vN0mfm1v"
+    ports:
+      - "5888:5432"
     volumes:
       - db:/var/lib/mysql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready", "-d", "db_prod"]
+      test: [ "CMD-SHELL", "pg_isready", "-d", "db_prod" ]
       interval: 10s
       timeout: 60s
       retries: 5
