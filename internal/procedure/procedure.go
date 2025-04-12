@@ -21,7 +21,7 @@ type procedures struct {
 }
 
 func NewProcedures(services service.Services) Procedures {
-	eventProcedure := newEventProcedure(services.Event(), services.EventBroker())
+	eventProcedure := newEventProcedure(services.Event())
 
 	grpcCredentials, err := tls.LoadX509KeyPair("server.crt", "server.key")
 	if err != nil {

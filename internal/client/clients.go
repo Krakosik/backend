@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+
 	firebase "firebase.google.com/go/v4"
 	"github.com/krakosik/backend/internal/dto"
 	"github.com/sirupsen/logrus"
@@ -10,14 +11,20 @@ import (
 
 type Clients interface {
 	AuthClient() AuthClient
+	RabbitMQClient() RabbitClient
 }
 
 type clients struct {
-	authClient AuthClient
+	authClient   AuthClient
+	rabbitClient RabbitClient
 }
 
 func (c clients) AuthClient() AuthClient {
 	return c.authClient
+}
+
+func (c clients) RabbitMQClient() RabbitClient {
+	return c.rabbitClient
 }
 
 func NewClients(cfg dto.Config) Clients {
@@ -34,7 +41,14 @@ func NewClients(cfg dto.Config) Clients {
 	if err != nil {
 		logrus.Panic(err)
 	}
+
+	rabbitClient, err := NewRabbitMQClient(cfg)
+	if err != nil {
+		logrus.Panic(err)
+	}
+
 	return &clients{
-		authClient: authClient,
+		authClient:   authClient,
+		rabbitClient: rabbitClient,
 	}
 }
