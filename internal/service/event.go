@@ -210,6 +210,33 @@ func (e *eventService) StreamLocation(srv grpc.BidiStreamingServer[gen.LocationU
 }
 
 func (e *eventService) ReportEvent(ctx context.Context, request *gen.ReportEventRequest) (*gen.ReportEventResponse, error) {
+	existingEvents, err := e.eventRepository.FindEventsWithinDistance(
+		request.GetLatitude(),
+		request.GetLongitude(),
+		100.0, // 100 meters
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, existingEvent := range existingEvents {
+		if existingEvent.EventType == model.EventType(request.GetType()) {
+			newExpiration := time.Now().UTC().Add(model.EventType(request.GetType()).GetExpirationDuration())
+			existingEvent.ExpiredAt = &newExpiration
+
+			updatedEvent, err := e.eventRepository.Update(existingEvent)
+			if err != nil {
+				return nil, err
+			}
+
+			e.PublishEvent(updatedEvent)
+
+			return &gen.ReportEventResponse{
+				EventId: uint32(updatedEvent.ID),
+			}, nil
+		}
+	}
+
 	expiration := time.Now().UTC().Add(model.EventType(request.GetType()).GetExpirationDuration())
 	event := model.Event{
 		EventType: model.EventType(request.GetType()),

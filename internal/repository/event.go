@@ -13,6 +13,7 @@ type EventRepository interface {
 	FindEventsWithinDistance(latitude, longitude float64, distanceInMeters float64) ([]model.Event, error)
 	GetByID(id uint) (model.Event, error)
 	CountVotes(eventID uint) (int32, error)
+	Update(event model.Event) (model.Event, error)
 }
 
 type event struct {
@@ -103,4 +104,13 @@ func (e *event) CountVotes(eventID uint) (int32, error) {
 	// Calculate net votes
 	netVotes := count - downCount
 	return int32(netVotes), nil
+}
+
+func (e *event) Update(event model.Event) (model.Event, error) {
+	result := e.db.Save(&event)
+	if result.Error != nil {
+		return model.Event{}, fmt.Errorf("%w: %v", dto.ErrInternalFailure, result.Error)
+	}
+
+	return event, nil
 }
