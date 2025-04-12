@@ -107,7 +107,12 @@ func (e *event) CountVotes(eventID uint) (int32, error) {
 }
 
 func (e *event) Update(event model.Event) (model.Event, error) {
-	result := e.db.Save(&event)
+	result := e.db.Model(&event).Updates(map[string]interface{}{
+		"event_type": event.EventType,
+		"latitude":   event.Latitude,
+		"longitude":  event.Longitude,
+		"expired_at": event.ExpiredAt,
+	})
 	if result.Error != nil {
 		return model.Event{}, fmt.Errorf("%w: %v", dto.ErrInternalFailure, result.Error)
 	}
