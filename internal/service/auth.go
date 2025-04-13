@@ -38,15 +38,12 @@ func (a *authService) ValidateToken(ctx context.Context, token string) (User, er
 		return User{}, fmt.Errorf("%w: %v", dto.ErrInternalFailure, err)
 	}
 
-	if _, ok := response.Claims["email"]; !ok {
-		return User{}, fmt.Errorf("%w: %v", dto.ErrInternalFailure, "email claim not found")
-
+	var userEmail string
+	if email, ok := response.Claims["email"]; ok {
+		if emailStr, ok := email.(string); ok {
+			userEmail = emailStr
+		}
 	}
-	if _, ok := response.Claims["email"].(string); !ok {
-		return User{}, fmt.Errorf("%w: %v", dto.ErrInternalFailure, "email claim is not a string")
-	}
-
-	userEmail := response.Claims["email"].(string)
 
 	user, err := a.userRepository.GetByID(response.UID)
 
