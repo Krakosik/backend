@@ -135,6 +135,7 @@ func (e *eventService) StreamLocation(srv grpc.BidiStreamingServer[gen.LocationU
 					Latitude:  event.Latitude,
 					Longitude: event.Longitude,
 					CreatedAt: event.CreatedAt.Unix(),
+					CanVote:   event.CreatedBy != user.ID,
 				}
 				if event.ExpiredAt != nil {
 					unixTime := event.ExpiredAt.Unix()
@@ -197,6 +198,7 @@ func (e *eventService) StreamLocation(srv grpc.BidiStreamingServer[gen.LocationU
 						Latitude:  event.Latitude,
 						Longitude: event.Longitude,
 						CreatedAt: event.CreatedAt.Unix(),
+						CanVote:   event.CreatedBy != user.ID,
 					}
 					if event.ExpiredAt != nil {
 						unixTime := event.ExpiredAt.Unix()
